@@ -1,0 +1,105 @@
+1.
+a) V.
+b) V.
+c) F. A chamada exec não cria um novo processo. Só carrega um programa para o espaço do processo atual.
+d) V.
+e) F. Baseia-se em "I/O bursts".
+f) F. Quando vários processos acedem e manipulam os mesmos dados, concorrentemente, e o resultado da execução depende da ordem desses acessos.
+g) V.
+h) V.
+i) F. Multiprogramação é a existência de vários processos na memória principal em simultâneo. Multiprocessamento é a utilização de vários CPU simultaneamente no mesmo computador.
+j) F. Retornará NULL.
+k) F. execlp não cria um processo.
+l) V.
+m) F. O i-node não contém o nome do ficheiro/diretório.
+n) V.
+o) V.
+p) F. 2^32 bits/16 KBytes = 2^32/2^17 = 2^15.
+q) V.
+r) V.
+s) F. Um mutex pode ser partilhado entre processos caso se encontre numa zona de memória partilhada.
+t) F. Uma secção crítica é um pedaço de código cujo acesso simultâneo por vários threads/processos é limitado.
+
+
+2. a) Inicializar um semáforo com um valor negativo obriga a várias chamadas à função sem_post() antes de permitir a entrada do primeiro thread na secção crítica, o que pode ser evitado facilmente.
+b)
+P1:
+...
+init("sem1",1);
+while(goOn)
+{
+    wait("sem1");
+    doWork1();
+    signal("sem2");
+}
+...
+P2:
+...
+init("sem2",0);
+while(goOn)
+{
+    wait("sem2");
+    doWork2();
+    signal("sem1");
+}
+
+
+3. a)
+ 1 | 2 | 3 | 4 | 1 | 5 | 4 | 3 | 6 | 5 | 1 | 3 | 2 | 4 | 6 | 1 | 5 | 2 | 4
+---------------------------------------------------------------------------
+ 1 | 1 | 1 | 1 |   | 1 |       | 6 |   | 6 |   | 2 | 2 | 2 | 2 | 5 | 5 | 4
+ - | 2 | 2 | 2 |   | 5 |       | 5 |   | 5 |   | 5 | 4 | 4 | 4 | 4 | 2 | 2
+ - | - | 3 | 3 |   | 3 |       | 3 |   | 3 |   | 3 | 3 | 3 | 1 | 1 | 1 | 1
+ - | - | - | 4 |   | 4 |       | 4 |   | 1 |   | 1 | 1 | 6 | 6 | 6 | 6 | 4
+ 1   2   3   4       5           6       7       8   9   10  11  12  13  14
+14 faltas de página.
+b) 1) Houve um grande número de faltas de página consecutivas.
+   2) 1,2,3,4,1,5,4,3,6,5,1,3, -> 2,4,6,1,5,2,4 <-
+c) 1) O número de páginas utilizadas num curto período de tempo foi maior do que o número de frames atribuído ao processo.
+   2) Pode ser adotada a estratégia dos grupos de trabalho, que utiliza o princípio de localidade de referência para atribuir ao processo o número de frames correspondente ao número de páginas necessárias.
+
+
+4. 1) Cada i-node correspondente a um ficheiro ou diretório contém a localização dos blocos correspondentes aos fragmentos do ficheiro ou diretório correspondente, permitindo a ligação entre as várias partes de um ficheiro de tamanho relativamente elevado.
+   2) O acesso a ficheiros grandes perde eficiência devido ao elevado número de operações de procura necessárias para aceder a todos os fragmentos.
+
+
+6. a) O processo leitor, uma vez que assim evitar-se-à criar vários FIFOs desnecessários, criando-se apenas um. (?????)
+   b) mkfifo("/users/tmp/srvfifo", 0660);
+   c) Uma vez que as operações write e read em FIFOs são atómicas para mensagens de tamanho inferior a PIPE_BUF bytes, é impossível a leitura ou escrita da mesma mensagem por dois threads ou processos diferentes.
+   d.1) O leitor pode fechar a FIFO e os escritores receberão todos um SIGPIPE quando tentarem escrever. Posteriormente abrir com a flag O_NONBLOCK (para evitar ficar à espera de um writer) e ler as mensagens restantes.
+	Leitor:
+	...
+	close(fd);
+	fd = open(fd, O_RDONLY | O_NONBLOCK);
+	...
+   d.2) Quando a chamada a read() na FIFO retorne 0, o que significa que foram lidos 0 bytes.
+	Leitor:
+	...
+	while (true)
+	{
+	    int ret = read(fd, str, PIPE_BUF);
+	    if (ret == 0);
+		break;
+	}
+	//FIFO vazio
+	...
+   d.3) Quando a chamada a write() na FIFO provocar a receção de um SIGPIPE.
+
+
+7. a) Caso não tivesse sido usado um array arg[] para guardar o valor do índice de cada thread, este seria guardado para todos os threads no mesmo endereço e, portanto, ao alterar para o thread seguinte o seu valor, alterar-se-ia para todos os threads anteriores. Daí ser importante alocar o espaço para cada thread (array).
+   b) Terminaria todos os threads simultaneamente ao chegar ao fim da função main, enquanto com pthread_exit(NULL) termina apenas o main, permitindo aos outros threads continuar a correr.
+   c) Busy waiting, uma vez que o mutex só impede a entrada de mais de um thread na zona de verificação do turn, mas não escolhe diretamente o thread cujo turno é o seguinte (o que seria apenas possível usando variáveis de condição). Portanto, vários threads (selecionados de forma aleatória) continuam a verificar periodicamente se é o seu turno (busy waiting).
+   d) No princípio:
+      pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+
+      Em thr(): (substituir o if pelo código seguinte)
+      ...
+      while (thrIndex != turn)
+      {
+          pthread_cond_wait(&cond, &mutex);
+      }
+      printf("%d ", thrIndex + 1);
+      turn = (turn + 1) % numThreads;
+      for (int i = 0; i < numThreads; i++)
+          pthread_cond_signal(&cond);
+      ...
